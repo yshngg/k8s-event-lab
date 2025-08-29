@@ -50,20 +50,21 @@ func main() {
 	// }
 
 	events, err := clientset.CoreV1().Events(common.EventNamespace).Watch(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		panic(err)
+	}
 	for event := range events.ResultChan() {
-		e := event.Object.(*corev1.Event)
-		if e.Reason == common.EventReason {
-			fmt.Println(e.Reason, e.Message, e.FirstTimestamp, e.LastTimestamp, e.Count)
+		e, ok := event.Object.(*corev1.Event)
+		if !ok {
+			fmt.Println(event.Object)
+			continue
 		}
 		switch event.Type {
-		case watch.Added:
-			fallthrough
-		case watch.Modified:
-			fallthrough
-		case watch.Error:
-			fallthrough
-		case watch.Bookmark:
-
+		case watch.Added, watch.Deleted, watch.Modified:
+			if e.Reason == common.EventReason {
+				fmt.Println(e.Reason, e.Message, e.FirstTimestamp, e.LastTimestamp, e.Count)
+			}
+		case watch.Bookmark, watch.Error:
 		}
 	}
 }

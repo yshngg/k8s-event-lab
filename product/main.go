@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"path/filepath"
 	"time"
 
@@ -64,10 +65,12 @@ func main() {
 		return
 	}
 
-	clientset.CoreV1().Events(common.EventNamespace).DeleteCollection(ctx, *&metav1.DeleteOptions{}, metav1.ListOptions{})
+	clientset.CoreV1().Events(common.EventNamespace).DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{})
 
-	for {
-		eventRecorder.Event(configmap, common.EventType, common.EventReason, common.EventMessage)
-		time.Sleep(time.Second)
+	ticker := time.NewTicker(1 * time.Second)
+	i := 0
+	for range ticker.C {
+		eventRecorder.Event(configmap, common.EventType, common.EventReason, fmt.Sprintf("%s %d", common.EventMessage, i))
+		i++
 	}
 }
