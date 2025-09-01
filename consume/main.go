@@ -56,7 +56,8 @@ func main() {
 	for event := range events.ResultChan() {
 		e, ok := event.Object.(*corev1.Event)
 		if !ok {
-			fmt.Println(event.Object)
+			s := event.Object.(*metav1.Status)
+			fmt.Println(s.Code, s.Reason, s.Message, s.Details)
 			continue
 		}
 		switch event.Type {
