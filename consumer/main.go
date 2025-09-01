@@ -9,7 +9,6 @@ import (
 	"github.com/yshngg/k8seventlab/common"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
@@ -60,12 +59,8 @@ func main() {
 			fmt.Println(s.Code, s.Reason, s.Message, s.Details)
 			continue
 		}
-		switch event.Type {
-		case watch.Added, watch.Deleted, watch.Modified:
-			if e.Reason == common.EventReason {
-				fmt.Println(e.Reason, e.Message, e.FirstTimestamp, e.LastTimestamp, e.Count)
-			}
-		case watch.Bookmark, watch.Error:
+		if e.Reason == common.EventReason {
+			fmt.Println(e.Reason, e.Message, e.FirstTimestamp, e.LastTimestamp, e.Count)
 		}
 	}
 }
