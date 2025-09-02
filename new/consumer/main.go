@@ -16,9 +16,11 @@ import (
 )
 
 func main() {
+	// Initialize klog flags and ensure logs are flushed on exit
 	klog.InitFlags(flag.CommandLine)
 	defer klog.Flush()
 
+	// Setup kubeconfig path from home directory or command line flag
 	var kubeconfig *string
 	if home := homedir.HomeDir(); home != "" {
 		kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
@@ -27,38 +29,34 @@ func main() {
 	}
 	flag.Parse()
 
-	// use the current context in kubeconfig
+	// Initialize Kubernetes client configuration
 	config, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
 	if err != nil {
 		panic(err.Error())
 	}
 
-	// create the clientset
+	// Create Kubernetes clientset
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		panic(err.Error())
 	}
 
-	// events, err := clientset.CoreV1().Events("").List(context.Background(), v1.ListOptions{})
-	// if err != nil {
-	// 	slog.Error("create kubernetes", "err", err)
-	// 	os.Exit(1)
-	// }
-	// for _, event := range events.Items {
-	// 	fmt.Println(event.Reason, event.Message)
-	// }
-
+	// Watch for events in the specified namespace
 	events, err := clientset.EventsV1().Events(common.EventNamespace).Watch(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		panic(err)
 	}
+
+	// Process events from the watch channel
 	for event := range events.ResultChan() {
 		e, ok := event.Object.(*corev1.Event)
 		if !ok {
+			// Handle non-event status messages
 			s := event.Object.(*metav1.Status)
 			fmt.Println(s.Code, s.Reason, s.Message, s.Details)
 			continue
 		}
+		// Process events with matching reason
 		if e.Reason == common.EventReason {
 			if e.Series != nil {
 				fmt.Println(e.Reason, e.Message, e.EventTime, e.Series.LastObservedTime, e.Series.Count)
