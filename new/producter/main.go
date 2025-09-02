@@ -22,9 +22,11 @@ import (
 )
 
 func main() {
+	// Initialize klog flags and ensure logs are flushed on exit
 	klog.InitFlags(flag.CommandLine)
 	defer klog.Flush()
 
+	// Setup kubeconfig path from home directory or command line flag
 	var kubeconfig *string
 	if home := homedir.HomeDir(); home != "" {
 		kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
@@ -33,27 +35,30 @@ func main() {
 	}
 	flag.Parse()
 
-	// use the current context in kubeconfig
+	// Initialize Kubernetes client configuration
 	config, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
 	if err != nil {
 		panic(err.Error())
 	}
 
-	// create the clientset
+	// Create Kubernetes clientset
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		panic(err.Error())
 	}
 
+	// Setup signal handling for graceful shutdown
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	eventBroadcaster := events.NewBroadcaster(&events.EventSinkImpl{Interface: clientset.EventsV1()})
 
+	// Initialize event broadcaster and recorder
+	eventBroadcaster := events.NewBroadcaster(&events.EventSinkImpl{Interface: clientset.EventsV1()})
 	scheme := runtime.NewScheme()
 	_ = corev1.AddToScheme(scheme)
 	eventRecorder := eventBroadcaster.NewRecorder(scheme, common.ComponentEventLab)
 	eventBroadcaster.StartStructuredLogging(0)
 	eventBroadcaster.StartRecordingToSinkWithContext(ctx)
 
+	// Create a ConfigMap as the event target
 	configmap, err := clientset.CoreV1().ConfigMaps(common.ConfigMapNamespace).Create(ctx, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: common.ConfigMapNamespace,
@@ -61,6 +66,7 @@ func main() {
 		},
 	}, metav1.CreateOptions{})
 
+	// Setup cleanup handler for resources
 	defer func(configmap *corev1.ConfigMap) {
 		if err != nil {
 			return
@@ -94,6 +100,7 @@ func main() {
 		return
 	}
 
+	// Start event generation loop
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 	i := 0
