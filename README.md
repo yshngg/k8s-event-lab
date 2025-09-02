@@ -1,1 +1,1 @@
-# k8s-event-lab
+# Kubernetes Event Lab
