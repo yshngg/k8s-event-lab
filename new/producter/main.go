@@ -61,23 +61,14 @@ func main() {
 		},
 	}, metav1.CreateOptions{})
 
-	if err != nil {
-		klog.Error(err)
-		stop()
-		return
-	}
-
-	defer func() {
+	defer func(configmap *corev1.ConfigMap) {
+		if err != nil {
+			return
+		}
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		err := clientset.CoreV1().
-			ConfigMaps(common.ConfigMapNamespace).
-			Delete(ctx, common.ConfigMapName, metav1.DeleteOptions{})
-		if err != nil {
-			klog.Error(err)
-		}
-		err = clientset.EventsV1().
-			Events(common.EventNamespace).
+		err := clientset.EventsV1().
+			Events(configmap.Namespace).
 			DeleteCollection(
 				ctx,
 				metav1.DeleteOptions{},
@@ -86,10 +77,22 @@ func main() {
 				})
 		if err != nil {
 			klog.Error(err)
+		}
+		err = clientset.CoreV1().
+			ConfigMaps(configmap.Namespace).
+			Delete(ctx, configmap.Name, metav1.DeleteOptions{})
+		if err != nil {
+			klog.Error(err)
 			return
 		}
 		klog.Info("clean up residual resources successfully")
-	}()
+	}(configmap)
+
+	if err != nil {
+		klog.Error(err)
+		stop()
+		return
+	}
 
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
