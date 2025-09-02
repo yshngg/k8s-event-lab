@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	"github.com/yshngg/k8seventlab/common"
@@ -44,7 +45,7 @@ func main() {
 		panic(err.Error())
 	}
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Kill, os.Interrupt)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	eventBroadcaster := events.NewBroadcaster(&events.EventSinkImpl{Interface: clientset.EventsV1()})
 
 	scheme := runtime.NewScheme()
@@ -67,11 +68,22 @@ func main() {
 	}
 
 	defer func() {
-		err := clientset.CoreV1().ConfigMaps(common.ConfigMapNamespace).Delete(context.Background(), common.ConfigMapName, metav1.DeleteOptions{})
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		err := clientset.CoreV1().
+			ConfigMaps(common.ConfigMapNamespace).
+			Delete(ctx, common.ConfigMapName, metav1.DeleteOptions{})
 		if err != nil {
 			klog.Error(err)
 		}
-		err = clientset.EventsV1().Events(common.EventNamespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})
+		err = clientset.EventsV1().
+			Events(common.EventNamespace).
+			DeleteCollection(
+				ctx,
+				metav1.DeleteOptions{},
+				metav1.ListOptions{
+					FieldSelector: fmt.Sprintf("involvedObject.uid=%s", configmap.UID),
+				})
 		if err != nil {
 			klog.Error(err)
 			return
@@ -80,6 +92,7 @@ func main() {
 	}()
 
 	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
 	i := 0
 	for {
 		select {

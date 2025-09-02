@@ -48,7 +48,7 @@ func main() {
 	// 	fmt.Println(event.Reason, event.Message)
 	// }
 
-	events, err := clientset.CoreV1().Events(common.EventNamespace).Watch(context.Background(), metav1.ListOptions{})
+	events, err := clientset.EventsV1().Events(common.EventNamespace).Watch(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		panic(err)
 	}
